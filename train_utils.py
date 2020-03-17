@@ -141,9 +141,8 @@ def get_W(X, distances, indices, gamma=3, k=50):
     A = np.zeros((N, N))
     row_idx = np.arange(N)
     row_idx_rep = np.tile(row_idx, (k, 1)).T
-    print(row_idx_rep.flatten("F").shape)
     values = distances ** gamma
-    W = scipy.sparse.csr_matrix((distances.flatten('F'), (row_idx_rep.flatten('F'), indices.flatten('F'))), shape=(N, N))
+    W = scipy.sparse.csr_matrix((values.flatten('F'), (row_idx_rep.flatten('F'), indices.flatten('F'))), shape=(N, N))
     W = W + W.T
     W = W - scipy.sparse.diags(W.diagonal())
     S = W.sum(axis=1)
