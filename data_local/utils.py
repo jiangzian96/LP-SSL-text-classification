@@ -166,7 +166,7 @@ def create_dataloaders(num_labeled=200):
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                                batch_size=BATCH_SIZE,
                                                collate_fn=train_dataset.spam_collate_func,
-                                               shuffle=True)
+                                               shuffle=False)
 
     val_dataset = SpamDataset(val_indices, val_labels, train_dataset.max_sent_length)
     val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
