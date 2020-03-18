@@ -39,8 +39,8 @@ class GRUClassifier(nn.Module):
     def forward(self, inputs):
         out = self.embedding_layer(inputs)
         gru_out, h_n = self.gru(out)
-        #(batch_size, seq_length, hidden_size*2)
-        out = h_n.squeeze(0)
+        #(batch_size, seq_length, hidden_size)
+        out = gru_out[:, -1, :].squeeze(1)
         logits = self.fc(out)
         return logits
 
@@ -50,8 +50,8 @@ def create_model(args):
     embedding_dim = args.embedding_dim
     hidden_dim = args.hidden_dim
     num_classes = args.num_classes
-
-    return GRUClassifier(vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_size=hidden_dim, num_classes=num_classes)
+    num_layers = args.num_layers
+    return GRUClassifier(vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_size=hidden_dim, num_classes=num_classes, num_layers=num_layers)
 
 
 def evaluate(model, dataloader, device):
@@ -78,14 +78,12 @@ def train(train_loader, val_loader, model, optimizer, criterion, device, args):
     best_val_acc = 0
     max_epoch = args.max_epoch
     name = args.name
-    model.train()
     for epoch in tqdm(range(max_epoch)):
+        model.train()
         for i, (data_batch, batch_labels, w, c) in enumerate(train_loader):
             preds = model(data_batch.to(device))
-            w = torch.autograd.Variable(w, requires_grad=True)
-            c = torch.autograd.Variable(c, requires_grad=True)
-            w.to(device)
-            c.to(device)
+            w = torch.autograd.Variable(w, requires_grad=True).to(device)
+            c = torch.autograd.Variable(c, requires_grad=True).to(device)
             minibatch_size = len(batch_labels)
             loss = criterion(preds, batch_labels.to(device))
             loss = loss * w
@@ -95,7 +93,7 @@ def train(train_loader, val_loader, model, optimizer, criterion, device, args):
             optimizer.step()
             optimizer.zero_grad()
             train_loss_history.append(loss.item())
-            if i % 50 == 0:
+            if i % 200 == 0:
                 print("loss: ", loss.item())
         accuracy = evaluate(model, val_loader, device)
         val_accuracy_history.append(accuracy)

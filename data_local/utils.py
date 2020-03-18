@@ -13,8 +13,8 @@ def create_unlabeled(train_texts, train_labels, num_labeled=200):
     print("Sampling unlabeled data......")
     n = len(train_texts)
     permute = np.random.permutation(n)
-    unlabeled_idx = permute[:num_labeled]
-    labeled_idx = permute[num_labeled:]
+    unlabeled_idx = permute[num_labeled:]
+    labeled_idx = permute[:num_labeled]
     all_texts = train_texts
     groundtruth_labels = np.copy(train_labels)
     unlabeled_texts = [train_texts[i] for i in unlabeled_idx]
