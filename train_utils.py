@@ -17,6 +17,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from sklearn.neighbors import NearestNeighbors
 import scipy
+from sklearn.preprocessing import normalize
+from sklearn.semi_supervised import LabelPropagation
 
 
 class Identity(nn.Module):
@@ -28,7 +30,7 @@ class Identity(nn.Module):
 
 
 class GRUClassifier(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_size, num_classes, bidirectional=True, dropout_prob=0.1, num_layers=1):
+    def __init__(self, vocab_size, embedding_dim, hidden_size, num_classes, bidirectional=False, dropout_prob=0.1, num_layers=1):
         super().__init__()
         self.embedding_layer = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim, padding_idx=0)
         self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_size, bidirectional=bidirectional, dropout=dropout_prob, batch_first=True, num_layers=num_layers)
@@ -38,14 +40,7 @@ class GRUClassifier(nn.Module):
         out = self.embedding_layer(inputs)
         gru_out, h_n = self.gru(out)
         #(batch_size, seq_length, hidden_size*2)
-        hidden_size_ = gru_out.size(2) // 2
-
-        # maxpooling
-        forward = gru_out[:, :, :hidden_size_]
-        backward = gru_out[:, :, hidden_size_:]
-        out = torch.stack([forward, backward])
-        out, _ = torch.max(out, dim=2)
-        out, _ = torch.max(out, dim=0)
+        out = h_n.squeeze(0)
         logits = self.fc(out)
         return logits
 
@@ -77,7 +72,7 @@ def evaluate(model, dataloader, device):
     return accuracy
 
 
-def train_without_weights(train_loader, val_loader, model, optimizer, criterion, device, args):
+def train(train_loader, val_loader, model, optimizer, criterion, device, args):
     train_loss_history = []
     val_accuracy_history = []
     best_val_acc = 0
@@ -106,7 +101,7 @@ def train_without_weights(train_loader, val_loader, model, optimizer, criterion,
             }, "models/{}_model.pt".format(name))
 
 
-def extract_features(labeled_loader, unlabeled_loader, path, device):
+def extract_features(data_loader, path, device):
     args = torch.load(path)["args"]
     feature_extractor = create_model(args)
     feature_extractor.load_state_dict(torch.load(path)["model_state_dict"])
@@ -114,11 +109,7 @@ def extract_features(labeled_loader, unlabeled_loader, path, device):
     feature_extractor.eval()
     res = torch.tensor([])
     print("Extracting features......")
-    for i, (data_batch, batch_labels) in enumerate(tqdm(labeled_loader)):
-        batch_features = feature_extractor(data_batch.to(device))
-        res = torch.cat((res, batch_features), 0)
-
-    for i, (data_batch, batch_labels) in enumerate(tqdm(unlabeled_loader)):
+    for i, (data_batch, batch_labels) in enumerate(tqdm(data_loader)):
         batch_features = feature_extractor(data_batch.to(device))
         res = torch.cat((res, batch_features), 0)
 
@@ -126,8 +117,44 @@ def extract_features(labeled_loader, unlabeled_loader, path, device):
     return res
 
 
+def run_LP(batch_features, groundtruth_labels, labeled_idx, unlabeled_idx, num_classes=2, k=350, max_iter=500):
+    print("Running label propagation......")
+    model = LabelPropagation(kernel="knn", gamma=0.1, n_neighbors=k, max_iter=max_iter)
+    print("Assigning pseudo labels......")
+    groundtruth_labels = np.array(groundtruth_labels)
+    p_labels = np.copy(groundtruth_labels)
+    p_labels[unlabeled_idx] = -1
+    model.fit(batch_features.cpu().detach().numpy(), p_labels)
+    Z = model.label_distributions_
+    Z = F.normalize(torch.tensor(Z), 1).numpy()
+    Z[Z < 0] = 0
+    entropy = scipy.stats.entropy(Z.T)
+    weights = 1 - entropy / np.log(num_classes)
+    weights = weights / np.max(weights)
+    p_labels = np.argmax(Z, 1)
+    p_labels[labeled_idx] = groundtruth_labels[labeled_idx]
+    weights[labeled_idx] = 1.0
+    print("Assigning class weights and pseudo label weights.......")
+    class_weights = [None for i in range(num_classes)]
+    for i in range(num_classes):
+        cur_idx = np.where(np.asarray(p_labels) == i)[0]
+        class_weights[i] = float(len(groundtruth_labels) / num_classes) / cur_idx.size
+    return p_labels, weights, class_weights
+
+
+def update_pseudoloader(all_indices, p_labels, updated_weights, updated_class_weights):
+    pseudo_dataset = SpamDataset(all_indices, p_labels, updated_weights, updated_class_weights, 128)
+    pseudo_loader = torch.utils.data.DataLoader(dataset=pseudo_dataset,
+                                                batch_size=32,
+                                                collate_fn=pseudo_dataset.spam_collate_func,
+                                                shuffle=False)
+    return pseudo_loader
+
+
+'''
 def get_knn(batch_features, k=5):
     X = batch_features.cpu().detach().numpy()
+    X = normalize(X)
     print("Calculating k nearest neighbors for each point...")
     nbrs = NearestNeighbors(n_neighbors=k + 1, algorithm='brute').fit(X)
     distances, indices = nbrs.kneighbors(X)
@@ -138,7 +165,7 @@ def get_knn(batch_features, k=5):
 
 def get_W(X, distances, indices, gamma=3, k=50):
     N = X.shape[0]
-    A = np.zeros((N, N))
+    # W = cosine_similarity(X, dense_output=False)  # ** gamma
     row_idx = np.arange(N)
     row_idx_rep = np.tile(row_idx, (k, 1)).T
     values = distances ** gamma
@@ -151,3 +178,13 @@ def get_W(X, distances, indices, gamma=3, k=50):
     D = scipy.sparse.diags(D.reshape(-1))
     W_normalized = D * W * D
     return W_normalized
+
+
+def get_plabels(W, all_labels, num_classes=2, alpha=0.99):
+    N = W.shape[0]
+    Z = np.zeros((N, num_classes))  # label_distribution_*
+    A = scipy.sparse.eye(N) - alpha * W
+    for i in range(num_classes):
+        cur_idx = all_labeled[np.where()]
+        y = np.zeros((N,))
+'''

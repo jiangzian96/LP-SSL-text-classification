@@ -39,13 +39,18 @@ def main():
         device = torch.device('cpu')
     torch.manual_seed(88)
 
-    model = create_model(args)
+    #model = create_model(args)
 
-    train_loader, val_loader, unlabeled_loader, all_loader, token2id = create_dataloaders(num_labeled=100)
+    d = create_dataloaders(num_labeled=200)
+    train_loader = d["train_loader"]
+    print(next(iter(train_loader)))
+    print(d["token2id"])
+    '''
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=0.1)
-    print(evaluate(model, val_loader, device))
-    train_without_weights(train_loader, val_loader, model, optimizer, criterion, device, args)
+    print(evaluate(model, d["val_loader"], device))
+    train(d["train_loader"], d["val_loader"], model, optimizer, criterion, device, args)
+	'''
 
 
 if __name__ == "__main__":

@@ -9,26 +9,21 @@ import torch
 from torch.utils.data import Dataset, dataloader
 
 
-def create_unlabeled(train_texts, train_labels, num_labeled=100):
-    print("Building unlabeled data......")
-    spam_texts = train_texts[train_labels == 1]
-    spam_labels = train_labels[train_labels == 1]
-    ham_texts = train_texts[train_labels == 0]
-    ham_labels = train_labels[train_labels == 0]
-    spam_labels[num_labeled:] = -1
-    ham_labels[num_labeled:] = -1
-    spam_labels, ham_labels = list(spam_labels), list(ham_labels)
-    spam_texts, ham_texts = list(spam_texts), list(ham_texts)
-    labeled_texts = spam_texts[:num_labeled] + ham_texts[:num_labeled]
-    train_labels = spam_labels[:num_labeled] + ham_labels[:num_labeled]
-    unlabeled_texts = spam_texts[num_labeled:] + ham_texts[num_labeled:]
+def create_unlabeled(train_texts, train_labels, num_labeled=200):
+    print("Sampling unlabeled data......")
+    n = len(train_texts)
+    permute = np.random.permutation(n)
+    unlabeled_idx = permute[:num_labeled]
+    labeled_idx = permute[num_labeled:]
+    all_texts = train_texts
+    groundtruth_labels = np.copy(train_labels)
+    unlabeled_texts = [train_texts[i] for i in unlabeled_idx]
     unlabeled_labels = [-1 for _ in range(len(unlabeled_texts))]
+    labeled_texts = [train_texts[i] for i in labeled_idx]
+    labeled_labels = [train_labels[i] for i in labeled_idx]
 
-    assert (len(labeled_texts) == 2 * num_labeled == len(train_labels))
-    assert (sum(np.array(train_labels) == 1) == num_labeled)
-    assert (sum(np.array(train_labels) == 0) == num_labeled)
     print("Building unlabeled data done!")
-    return labeled_texts, train_labels, unlabeled_texts, unlabeled_labels
+    return labeled_texts, labeled_labels, unlabeled_texts, unlabeled_labels, all_texts, groundtruth_labels, unlabeled_idx, labeled_idx
 
 
 def tokenize_data(data):
@@ -75,12 +70,15 @@ def transform(preprocessed_data, labels, token2id):
     return text_indices, labels
 
 
-class SpamDataset(Dataset):
-    def __init__(self, data_list, target_list, max_sent_length=128):
+class ReviewDataset(Dataset):
+    def __init__(self, data_list, target_list, weights_list, class_weights, max_sent_length=128):
         self.data_list = data_list
         self.target_list = target_list
         self.max_sent_length = max_sent_length
+        self.weights_list = weights_list
+        self.class_weights = class_weights
         assert (len(self.data_list) == len(self.target_list))
+        assert (len(self.weights_list) == len(self.data_list))
 
     def __len__(self):
         return len(self.data_list)
@@ -90,16 +88,22 @@ class SpamDataset(Dataset):
             max_sent_length = self.max_sent_length
         token_idx = self.data_list[key][:max_sent_length]
         label = self.target_list[key]
-        return [token_idx, label]
+        w = self.weights_list[key]
+        c = self.class_weights[label]
+        return [token_idx, label, w, c]
 
     def spam_collate_func(self, batch):
         data_list = []
         label_list = []
         max_batch_seq_len = None
         length_list = []
+        w_list = []
+        c_list = []
         for datum in batch:
             label_list.append(datum[1])
             length_list.append(len(datum[0]))
+            w_list.append(datum[2])
+            c_list.append(datum[3])
 
         if max(length_list) < self.max_sent_length:
             max_batch_seq_len = max(length_list)
@@ -112,14 +116,15 @@ class SpamDataset(Dataset):
                                 mode="constant", constant_values=0)
             data_list.append(padded_vec)
 
-        return [torch.from_numpy(np.array(data_list)), torch.LongTensor(label_list)]
+        return [torch.from_numpy(np.array(data_list)), torch.LongTensor(label_list), torch.Tensor(w_list), torch.Tensor(c_list)]
 
 
 def create_dataloaders(num_labeled=200):
-    df = pd.read_csv("data_local/spam.csv", usecols=["v1", "v2"], encoding='latin-1')
+    # 25k
+    df = pd.read_csv("data_local/reviews.csv", usecols=["review", "sentiment"], encoding='latin-1')
 
-    # 1 - spam, 0 - ham
-    df.v1 = (df.v1 == "spam").astype("int")
+    # 1 - pos, 0 - neg
+    df.sentiment = (df.sentiment == "positive").astype("int")
 
     # split into train and val
     # 0.85 vs 0.15
@@ -132,59 +137,70 @@ def create_dataloaders(num_labeled=200):
     val_df = df[:val_size]
     train_df = df[val_size:]
 
-    train_texts, train_labels = np.array(train_df.v2), np.array(train_df.v1, dtype="int")
-    val_texts, val_labels = np.array(val_df.v2), np.array(val_df.v1, dtype="int")
-    all_labels = np.copy(train_labels)
+    train_texts, train_labels = np.array(train_df.review), np.array(train_df.sentiment, dtype="int")
+    val_texts, val_labels = np.array(val_df.review), np.array(val_df.sentiment, dtype="int")
 
     # make unlabeled
     #parser = argparse.ArgumentParser()
     #parser.add_argument("-n", "--num_labeled", default=200, type=int, help="number of labeled example per class")
     #args = parser.parse_args()
     #NUM_LABELED = args.num_labeled
-    labeled_texts, train_labels, unlabeled_texts, unlabeled_labels = create_unlabeled(train_texts, train_labels, num_labeled=num_labeled)
+    labeled_texts, labeled_labels, unlabeled_texts, unlabeled_labels, all_texts, groundtruth_labels, \
+        unlabeled_idx, labeled_idx = create_unlabeled(train_texts, train_labels, num_labeled=num_labeled)
 
     # string ---> tokens
     labeled_processed = tokenize_data(labeled_texts)
     unlabeled_processed = tokenize_data(unlabeled_texts)
     val_processed = tokenize_data(val_texts)
-    all_processed = labeled_processed + unlabeled_processed
+    all_processed = tokenize_data(all_texts)
 
     # create vocab
     token2id, id2token = create_vocab(all_processed, max_vocab=10000)
 
     # tokens --- > indices
-    labeled_indices, train_labels = transform(labeled_processed, train_labels, token2id)
+    labeled_indices, labeled_labels = transform(labeled_processed, labeled_labels, token2id)
     unlabeled_indices, unlabeled_labels = transform(unlabeled_processed, unlabeled_labels, token2id)
     val_indices, val_labels = transform(val_processed, val_labels, token2id)
-    all_indices, all_labels = transform(all_processed, all_labels, token2id)
+    all_indices, groundtruth_labels = transform(all_processed, groundtruth_labels, token2id)
 
     # create dataloaders
     BATCH_SIZE = 32
     max_sent_length = 128
     print("Creating dataloaders......")
-    train_dataset = SpamDataset(labeled_indices, train_labels, max_sent_length)
+    w_list = [1. for i in range(len(train_labels))]
+    c_list = [1., 1.]
+    train_dataset = SpamDataset(labeled_indices, train_labels, w_list, c_list, max_sent_length)
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                                batch_size=BATCH_SIZE,
                                                collate_fn=train_dataset.spam_collate_func,
                                                shuffle=False)
 
-    val_dataset = SpamDataset(val_indices, val_labels, train_dataset.max_sent_length)
+    w_list = [1. for i in range(len(val_labels))]
+    c_list = [1., 1.]
+    val_dataset = SpamDataset(val_indices, val_labels, w_list, c_list, train_dataset.max_sent_length)
     val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
                                              batch_size=BATCH_SIZE,
                                              collate_fn=train_dataset.spam_collate_func,
                                              shuffle=False)
 
-    unlabeled_dataset = SpamDataset(unlabeled_indices, unlabeled_labels, train_dataset.max_sent_length)
-    unlabeled_loader = torch.utils.data.DataLoader(dataset=unlabeled_dataset,
-                                                   batch_size=BATCH_SIZE,
-                                                   collate_fn=unlabeled_dataset.spam_collate_func,
-                                                   shuffle=False)
-
-    all_dataset = SpamDataset(all_indices, all_labels, train_dataset.max_sent_length)
-    all_loader = torch.utils.data.DataLoader(dataset=all_dataset,
-                                             batch_size=BATCH_SIZE,
-                                             collate_fn=all_dataset.spam_collate_func,
-                                             shuffle=False)
+    w_list = [1. for i in range(len(groundtruth_labels))]
+    c_list = [1., 1.]
+    groundtruth_dataset = SpamDataset(all_indices, groundtruth_labels, w_list, c_list, train_dataset.max_sent_length)
+    groundtruth_loader = torch.utils.data.DataLoader(dataset=all_dataset,
+                                                     batch_size=BATCH_SIZE,
+                                                     collate_fn=all_dataset.spam_collate_func,
+                                                     shuffle=False)
     print("Creating dataloaders done!")
 
-    return train_loader, val_loader, unlabeled_loader, all_loader, token2id
+    d = {
+        "unlabeled_idx": unlabeled_idx,
+        "labeled_idx": labeled_idx,
+        "train_loader": train_loader,
+        "val_loader": val_loader,
+        "groundtruth_loader": groundtruth_loader,
+        "token2id": token2id,
+        "all_indices": all_indices,
+        "groundtruth_labels": groundtruth_labels
+    }
+
+    return d
