@@ -60,7 +60,7 @@ def evaluate(model, dataloader, device):
     correct = 0
     total = 0
     print("Evaluating model...")
-    for data_batch, labels_batch in tqdm(dataloader):
+    for data_batch, labels_batch, w, c in tqdm(dataloader):
         data_batch = data_batch.to(device)
         labels_batch = labels_batch.to(device)
         outputs = F.softmax(model(data_batch), dim=1)
@@ -80,9 +80,17 @@ def train(train_loader, val_loader, model, optimizer, criterion, device, args):
     name = args.name
     model.train()
     for epoch in tqdm(range(max_epoch)):
-        for i, (data_batch, batch_labels) in enumerate(train_loader):
+        for i, (data_batch, batch_labels, w, c) in enumerate(train_loader):
             preds = model(data_batch.to(device))
+            w = torch.autograd.Variable(w, requires_grad=True)
+            c = torch.autograd.Variable(c, requires_grad=True)
+            w.to(device)
+            c.to(device)
+            minibatch_size = len(batch_labels)
             loss = criterion(preds, batch_labels.to(device))
+            loss = loss * w
+            loss = loss * c
+            loss = loss.sum() / minibatch_size
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -143,7 +151,7 @@ def run_LP(batch_features, groundtruth_labels, labeled_idx, unlabeled_idx, num_c
 
 
 def update_pseudoloader(all_indices, p_labels, updated_weights, updated_class_weights):
-    pseudo_dataset = SpamDataset(all_indices, p_labels, updated_weights, updated_class_weights, 128)
+    pseudo_dataset = ReviewDataset(all_indices, p_labels, updated_weights, updated_class_weights, 128)
     pseudo_loader = torch.utils.data.DataLoader(dataset=pseudo_dataset,
                                                 batch_size=32,
                                                 collate_fn=pseudo_dataset.spam_collate_func,

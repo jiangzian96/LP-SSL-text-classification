@@ -167,9 +167,9 @@ def create_dataloaders(num_labeled=200):
     BATCH_SIZE = 32
     max_sent_length = 128
     print("Creating dataloaders......")
-    w_list = [1. for i in range(len(train_labels))]
+    w_list = [1. for i in range(len(labeled_labels))]
     c_list = [1., 1.]
-    train_dataset = SpamDataset(labeled_indices, train_labels, w_list, c_list, max_sent_length)
+    train_dataset = ReviewDataset(labeled_indices, labeled_labels, w_list, c_list, max_sent_length)
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                                batch_size=BATCH_SIZE,
                                                collate_fn=train_dataset.spam_collate_func,
@@ -177,7 +177,7 @@ def create_dataloaders(num_labeled=200):
 
     w_list = [1. for i in range(len(val_labels))]
     c_list = [1., 1.]
-    val_dataset = SpamDataset(val_indices, val_labels, w_list, c_list, train_dataset.max_sent_length)
+    val_dataset = ReviewDataset(val_indices, val_labels, w_list, c_list, train_dataset.max_sent_length)
     val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
                                              batch_size=BATCH_SIZE,
                                              collate_fn=train_dataset.spam_collate_func,
@@ -185,10 +185,10 @@ def create_dataloaders(num_labeled=200):
 
     w_list = [1. for i in range(len(groundtruth_labels))]
     c_list = [1., 1.]
-    groundtruth_dataset = SpamDataset(all_indices, groundtruth_labels, w_list, c_list, train_dataset.max_sent_length)
-    groundtruth_loader = torch.utils.data.DataLoader(dataset=all_dataset,
+    groundtruth_dataset = ReviewDataset(all_indices, groundtruth_labels, w_list, c_list, train_dataset.max_sent_length)
+    groundtruth_loader = torch.utils.data.DataLoader(dataset=groundtruth_dataset,
                                                      batch_size=BATCH_SIZE,
-                                                     collate_fn=all_dataset.spam_collate_func,
+                                                     collate_fn=groundtruth_dataset.spam_collate_func,
                                                      shuffle=False)
     print("Creating dataloaders done!")
 

@@ -43,14 +43,11 @@ def main():
 
     d = create_dataloaders(num_labeled=200)
     train_loader = d["train_loader"]
-    print(next(iter(train_loader)))
-    print(d["token2id"])
-    '''
-    criterion = nn.CrossEntropyLoss()
+
+    criterion = nn.CrossEntropyLoss(reduction="none")
     optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=0.1)
     print(evaluate(model, d["val_loader"], device))
     train(d["train_loader"], d["val_loader"], model, optimizer, criterion, device, args)
-	'''
 
 
 if __name__ == "__main__":
