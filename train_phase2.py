@@ -48,11 +48,11 @@ def main():
     pseudo_loader = update_pseudoloader(d["all_indices"], p_labels, updated_weights, updated_class_weights)
     print(len(p_labels))
 
-    model = create_model(args)
+    model = create_model(d["args"])
     model.load_state_dict(torch.load("models/baseline_model.pt", map_location=torch.device(device))["model_state_dict"])
     criterion = nn.CrossEntropyLoss(reduction="none")
     optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
-    train(pseudo_loader, d["val_loader"], model, optimizer, criterion, device, args)
+    train(pseudo_loader, d["val_loader"], model, optimizer, criterion, device, d["args"])
 
     for i in range(args.total_epochs):
         batch_features = extract_features(d["groundtruth_loader"], path=PATH, device=device)
@@ -62,7 +62,7 @@ def main():
         model.load_state_dict(torch.load("models/{}_model.pt".format(args.name), map_location=torch.device(device))["model_state_dict"])
         criterion = nn.CrossEntropyLoss(reduction="none")
         optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
-        train(pseudo_loader, d["val_loader"], model, optimizer, criterion, device, args)
+        train(pseudo_loader, d["val_loader"], model, optimizer, criterion, device, d["args"])
 
 
 if __name__ == "__main__":
