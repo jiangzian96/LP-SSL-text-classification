@@ -45,14 +45,12 @@ def main():
     with open('data_local/processed/data_{}.pickle'.format(args.num_labeled), 'wb') as handle:
         pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-
-'''
     train_loader = d["train_loader"]
     criterion = nn.CrossEntropyLoss(reduction="none")
     optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
     print(evaluate(model, d["val_loader"], device))
     train(d["train_loader"], d["val_loader"], model, optimizer, criterion, device, args)
-'''
+
 
 if __name__ == "__main__":
     main()

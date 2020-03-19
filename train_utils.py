@@ -115,7 +115,7 @@ def extract_features(data_loader, path, device):
     feature_extractor.load_state_dict(torch.load(path, map_location=torch.device(device))["model_state_dict"])
     feature_extractor.fc = Identity()
     feature_extractor.eval()
-    res = torch.tensor([])
+    res = torch.tensor([]).to(device)
     print("Extracting features......")
     for i, (data_batch, batch_labels, w, c) in enumerate(tqdm(data_loader)):
         batch_features = feature_extractor(data_batch.to(device))
@@ -123,31 +123,6 @@ def extract_features(data_loader, path, device):
 
     print("Extracted {} points each {}-dimensional!".format(*res.shape))
     return res
-
-
-def run_LP(batch_features, groundtruth_labels, labeled_idx, unlabeled_idx, num_classes=2, k=500, max_iter=500):
-    print("Running label propagation......")
-    model = LabelPropagation(kernel="knn", gamma=0.1, n_neighbors=k, max_iter=max_iter)
-    print("Assigning pseudo labels......")
-    groundtruth_labels = np.array(groundtruth_labels)
-    p_labels = np.copy(groundtruth_labels)
-    p_labels[unlabeled_idx] = -1
-    model.fit(batch_features.cpu().detach().numpy(), p_labels)
-    Z = model.label_distributions_
-    Z = F.normalize(torch.tensor(Z), 1).numpy()
-    Z[Z < 0] = 0
-    entropy = scipy.stats.entropy(Z.T)
-    weights = 1 - entropy / np.log(num_classes)
-    weights = weights / np.max(weights)
-    p_labels = np.argmax(Z, 1)
-    p_labels[labeled_idx] = groundtruth_labels[labeled_idx]
-    weights[labeled_idx] = 1.0
-    print("Assigning class weights and pseudo label weights.......")
-    class_weights = [None for i in range(num_classes)]
-    for i in range(num_classes):
-        cur_idx = np.where(p_labels == i)[0]
-        class_weights[i] = float(len(groundtruth_labels) / num_classes) / cur_idx.size
-    return p_labels, weights, class_weights
 
 
 def update_pseudoloader(all_indices, p_labels, updated_weights, updated_class_weights):
@@ -181,7 +156,31 @@ def f1_score(y_true, y_pred):
     return f1
 
 
-'''
+def run_LP(batch_features, groundtruth_labels, labeled_idx, unlabeled_idx, num_classes=2, k=500, max_iter=500):
+    print("Running knn......")
+    X, distances, indices = get_knn(batch_features, k=k)
+    print("Building graph......")
+    W_normalized = get_W(X, distances, indices, gamma=3, k=k)
+    groundtruth_labels = np.array(groundtruth_labels)
+    print("Running label propagation......")
+    Z = get_label_distributions(W_normalized, groundtruth_labels, labeled_idx, num_classes=2, alpha=0.99)
+    print("Assigning pseudo labels")
+    Z = F.normalize(torch.tensor(Z), 1).numpy()
+    Z[Z < 0] = 0
+    entropy = scipy.stats.entropy(Z.T)
+    weights = 1 - entropy / np.log(num_classes)
+    weights = weights / np.max(weights)
+    p_labels = np.argmax(Z, 1)
+    p_labels[labeled_idx] = groundtruth_labels[labeled_idx]
+    weights[labeled_idx] = 1.0
+    print("Assigning class weights and pseudo label weights.......")
+    class_weights = [None for i in range(num_classes)]
+    for i in range(num_classes):
+        cur_idx = np.where(p_labels == i)[0]
+        class_weights[i] = float(len(groundtruth_labels) / num_classes) / cur_idx.size
+    return p_labels.tolist(), weights.tolist(), class_weights
+
+
 def get_knn(batch_features, k=5):
     X = batch_features.cpu().detach().numpy()
     X = normalize(X)
@@ -210,11 +209,15 @@ def get_W(X, distances, indices, gamma=3, k=50):
     return W_normalized
 
 
-def get_plabels(W, all_labels, num_classes=2, alpha=0.99):
+def get_label_distributions(W, all_labels, labeled_idx, num_classes=2, alpha=0.99, maxiter=20):
     N = W.shape[0]
     Z = np.zeros((N, num_classes))  # label_distribution_*
     A = scipy.sparse.eye(N) - alpha * W
     for i in range(num_classes):
-        cur_idx = all_labeled[np.where()]
+        cur_idx = np.asarray(labeled_idx)[np.where(np.asarray(all_labels)[labeled_idx] == i)]
         y = np.zeros((N,))
-'''
+        y[cur_idx] = 1.0 / cur_idx.shape[0]
+        f, _ = scipy.sparse.linalg.cg(A, y, tol=1e-6, maxiter=maxiter)
+        Z[:, i] = f
+    Z[Z < 0] = 0
+    return Z

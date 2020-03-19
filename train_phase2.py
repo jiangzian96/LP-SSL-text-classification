@@ -26,10 +26,10 @@ def main():
     parser.add_argument("-e", "--embedding_dim", default=64, type=int, help="embedding dim")
     parser.add_argument("-H", "--hidden_dim", default=32, type=int, help="hidden dim")
     parser.add_argument("-n", "--num_classes", default=2, type=int, help="num classes")
-    parser.add_argument("-f", "--feature_extractor", default=False, type=bool, help="fc or Identity for last layer")
+    parser.add_argument("-f", "--total_epochs", default=2, type=int, help="num epochs to train with updating ppseudo labels")
     parser.add_argument("-v", "--vocab_size", default=10002, type=int, help="vocab size")
     parser.add_argument("-m", "--max_epoch", default=1, type=int, help="num epoch")
-    parser.add_argument("-t", "--name", default=None, type=str, help="name of the model")
+    parser.add_argument("-t", "--name", default="phase2", type=str, help="name of the model")
     parser.add_argument("-l", "--num_layers", default=2, type=int, help="num layer for GRU")
     parser.add_argument("-u", "--num_labeled", default=200, type=int, help="num layer for GRU")
     parser.add_argument("-k", "--knn", default=500, type=int, help="k for kNN")
@@ -46,12 +46,23 @@ def main():
     batch_features = extract_features(d["groundtruth_loader"], path=PATH, device=device)
     p_labels, updated_weights, updated_class_weights = run_LP(batch_features, d["groundtruth_labels"], d["labeled_idx"], d["unlabeled_idx"], k=args.knn)
     pseudo_loader = update_pseudoloader(d["all_indices"], p_labels, updated_weights, updated_class_weights)
+    print(len(p_labels))
 
     model = create_model(args)
-    model.load_state_dict(torch.load("models/baseline_model.pt")["model_state_dict"])
+    model.load_state_dict(torch.load("models/baseline_model.pt", map_location=torch.device(device))["model_state_dict"])
     criterion = nn.CrossEntropyLoss(reduction="none")
     optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
-    train(pseudo_loader, val_loader, model, optimizer, criterion, device, args)
+    train(pseudo_loader, d["val_loader"], model, optimizer, criterion, device, args)
+
+    for i in range(args.total_epochs):
+        batch_features = extract_features(d["groundtruth_loader"], path=PATH, device=device)
+        p_labels, updated_weights, updated_class_weights = run_LP(batch_features, d["groundtruth_labels"], d["labeled_idx"], d["unlabeled_idx"], k=args.knn)
+        pseudo_loader = update_pseudoloader(d["all_indices"], p_labels, updated_weights, updated_class_weights)
+        model = create_model(args)
+        model.load_state_dict(torch.load("models/{}_model.pt".format(args.name), map_location=torch.device(device))["model_state_dict"])
+        criterion = nn.CrossEntropyLoss(reduction="none")
+        optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+        train(pseudo_loader, d["val_loader"], model, optimizer, criterion, device, args)
 
 
 if __name__ == "__main__":
