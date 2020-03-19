@@ -6,7 +6,7 @@ import time
 import math
 import pickle
 import pdb
-
+import pickle
 import numpy as np
 import torch
 import torch.nn as nn
@@ -30,7 +30,8 @@ def main():
     parser.add_argument("-v", "--vocab_size", default=10002, type=int, help="vocab size")
     parser.add_argument("-m", "--max_epoch", default=1, type=int, help="num epoch")
     parser.add_argument("-t", "--name", default=None, type=str, help="name of the model")
-    parser.add_argument("-l", "--num_layer", default=2, type=int, help="num layer for GRU")
+    parser.add_argument("-l", "--num_layers", default=2, type=int, help="num layer for GRU")
+    parser.add_argument("-u", "--num_labeled", default=200, type=int, help="num layer for GRU")
     args = parser.parse_args()
 
     # device
@@ -40,13 +41,18 @@ def main():
 
     model = create_model(args)
     model = model.to(device)
-    d = create_dataloaders(num_labeled=100)
+    d = create_dataloaders(num_labeled=args.num_labeled)
+    with open('data_local/processed/data_{}.pickle'.format(args.num_labeled), 'wb') as handle:
+        pickle.dump(d, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+'''
     train_loader = d["train_loader"]
     criterion = nn.CrossEntropyLoss(reduction="none")
-    optimizer = optim.Adam(model.parameters(), lr=0.1, momentum=0.9)
+    optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
     print(evaluate(model, d["val_loader"], device))
     train(d["train_loader"], d["val_loader"], model, optimizer, criterion, device, args)
-
+'''
 
 if __name__ == "__main__":
     main()

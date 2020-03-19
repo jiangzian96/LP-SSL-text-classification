@@ -20,6 +20,8 @@ import scipy
 from sklearn.preprocessing import normalize
 from sklearn.semi_supervised import LabelPropagation
 
+from data_local.utils import *
+
 
 class Identity(nn.Module):
     def __init__(self):
@@ -108,14 +110,14 @@ def train(train_loader, val_loader, model, optimizer, criterion, device, args):
 
 
 def extract_features(data_loader, path, device):
-    args = torch.load(path)["args"]
-    feature_extractor = create_model(args)
-    feature_extractor.load_state_dict(torch.load(path)["model_state_dict"])
+    args = torch.load(path, map_location=torch.device(device))["args"]
+    feature_extractor = create_model(args).to(device)
+    feature_extractor.load_state_dict(torch.load(path, map_location=torch.device(device))["model_state_dict"])
     feature_extractor.fc = Identity()
     feature_extractor.eval()
     res = torch.tensor([])
     print("Extracting features......")
-    for i, (data_batch, batch_labels) in enumerate(tqdm(data_loader)):
+    for i, (data_batch, batch_labels, w, c) in enumerate(tqdm(data_loader)):
         batch_features = feature_extractor(data_batch.to(device))
         res = torch.cat((res, batch_features), 0)
 
@@ -123,7 +125,7 @@ def extract_features(data_loader, path, device):
     return res
 
 
-def run_LP(batch_features, groundtruth_labels, labeled_idx, unlabeled_idx, num_classes=2, k=350, max_iter=500):
+def run_LP(batch_features, groundtruth_labels, labeled_idx, unlabeled_idx, num_classes=2, k=500, max_iter=500):
     print("Running label propagation......")
     model = LabelPropagation(kernel="knn", gamma=0.1, n_neighbors=k, max_iter=max_iter)
     print("Assigning pseudo labels......")
@@ -143,7 +145,7 @@ def run_LP(batch_features, groundtruth_labels, labeled_idx, unlabeled_idx, num_c
     print("Assigning class weights and pseudo label weights.......")
     class_weights = [None for i in range(num_classes)]
     for i in range(num_classes):
-        cur_idx = np.where(np.asarray(p_labels) == i)[0]
+        cur_idx = np.where(p_labels == i)[0]
         class_weights[i] = float(len(groundtruth_labels) / num_classes) / cur_idx.size
     return p_labels, weights, class_weights
 
@@ -155,6 +157,28 @@ def update_pseudoloader(all_indices, p_labels, updated_weights, updated_class_we
                                                 collate_fn=pseudo_dataset.spam_collate_func,
                                                 shuffle=False)
     return pseudo_loader
+
+
+def f1_score(y_true, y_pred):
+    TP = 0
+    FP = 0
+    TN = 0
+    FN = 0
+
+    for i in range(len(y_pred)):
+        if y_true[i] == y_pred[i] == 1:
+            TP += 1
+        if y_pred[i] == 1 and y_true[i] != y_pred[i]:
+            FP += 1
+        if y_true[i] == y_pred[i] == 0:
+            TN += 1
+        if y_pred[i] == 0 and y_true[i] != y_pred[i]:
+            FN += 1
+
+    precision = TP / (TP + FP)
+    recall = TP / (TP + FN)
+    f1 = 2 * (precision * recall) / (precision + recall)
+    return f1
 
 
 '''
