@@ -33,7 +33,7 @@ In particular, we are interested in applying [label propagation](https://pdfs.se
 #### Optimizer
 - `torch.optim.Adam(params, lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)`
 
-### Training pipline
+### Training pipeline
 1. Assign a small portion (5~10%) of the training data `T` as the labeled dataset, `L = (x_1,x_2,...,x_l)`. Then remove the labels for the rest and call them the unlabeled dataset, `U = (x_{l+1},x_{l+2},...,x+{l+u})`.
 2. Train a baseline model (e.x. 2-layer GRU with FC layer) on only `L` for `M` epochs, whose performance acts as a lower bound. Train a fully supervised model on `T` for `M` epochs, whose performance acts as an upper bound. 
 3. Remove the FC layer from the baseline model to make it a feature extractor. Feed forward both `L` and `U` to get hidden representations `V = (v_1,v_2,...,v_{l+u})`. Do label propagation with `V` and assign/update the inferred labels of `U`.
@@ -41,7 +41,7 @@ In particular, we are interested in applying [label propagation](https://pdfs.se
 5. Repeat 3 and 4 for `N` epochs. 
 
 
-## Run the full training pipline
+## Run the full training pipeline
 
 ### 0. Preprocessing data
 ```shell
