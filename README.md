@@ -19,6 +19,21 @@ Many supervised learning methods require a large amount of labeled data to achie
 In particular, we are interested in applying [label propagation](https://pdfs.semanticscholar.org/8a6a/114d699824b678325766be195b0e7b564705.pdf), a graph-based semi-supervised learning technique, to NLP/NLU task with deep learning models. For graph-based methods, all data, with or without label, are considered as vertices on a graph in a `d-dimensional feature space`. Label propagation regards all labeled data as “sources”, and assigns pseudo-labels to unlabeled data based on the cluster assumption that vertices that are close on the graph should have similar labels. Since “unlabeled” data are now given labels inferred from labeled data, we can use them for further supervised learning. Label propagation​ has a good performance in other areas of deep learning, and we are interested in its performance on NLP/NLU tasks.
 
 ## Experiments
+### Model specifics
+#### Feature extractor
+- `nn.Embedding` with `vocab_size=10002`
+- uni-directional `GRU`
+
+#### Classifier
+- `nn.Linear`
+
+#### Criterion
+- `nn.CrossEntropyLoss`
+
+#### Optimizer
+- `torch.optim.Adam(params, lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)`
+
+### Training pipline
 1. Assign a small portion (5~10%) of the training data `T` as the labeled dataset, `L = (x_1,x_2,...,x_l)`. Then remove the labels for the rest and call them the unlabeled dataset, `U = (x_{l+1},x_{l+2},...,x+{l+u})`.
 2. Train a baseline model (e.x. 2-layer GRU with FC layer) on only `L` for `M` epochs, whose performance acts as a lower bound. Train a fully supervised model on `T` for `M` epochs, whose performance acts as an upper bound. 
 3. Remove the FC layer from the baseline model to make it a feature extractor. Feed forward both `L` and `U` to get hidden representations `V = (v_1,v_2,...,v_{l+u})`. Do label propagation with `V` and assign/update the inferred labels of `U`.
