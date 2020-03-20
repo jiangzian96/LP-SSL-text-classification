@@ -1,5 +1,3 @@
-import argparse
-import math
 from tqdm import tqdm
 
 import numpy as np
@@ -7,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-from torch.utils.data import DataLoader
 
 from sklearn.neighbors import NearestNeighbors
 import scipy

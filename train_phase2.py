@@ -1,7 +1,6 @@
 import argparse
 import pickle
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -16,7 +15,7 @@ def main():
     parser.add_argument("--name", default="phase2", type=str, help="name of the phase2 model")
     parser.add_argument("--num_labeled", default=4250, type=int, help="number of labeled data used in make_data.py", required=True)
     parser.add_argument("--knn", default=100, type=int, help="k for knn")
-    parser.add_argument("--prev_model_name", default="baseline", type=str, help="name of the baseline/phase1 model", required=True)
+    parser.add_argument("--phase1_model_name", default="baseline", type=str, help="name of the baseline/phase1 model", required=True)
     args = parser.parse_args()
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -27,7 +26,7 @@ def main():
         d = pickle.load(handle)
 
     # path of the baseline/phase1 model
-    PATH = "models/{}_model.pt".format(args.prev_model_name)
+    PATH = "models/{}_model.pt".format(args.phase1_model_name)
 
     # config of model
     model_config = torch.load(PATH, map_location=torch.device(device))["args"]

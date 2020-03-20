@@ -1,13 +1,5 @@
 import argparse
 import pickle
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.backends.cudnn as cudnn
-from torch.autograd import Variable
-from torch.utils.data import DataLoader
-import torch.optim as optim
 
 from data_local.utils import *
 
