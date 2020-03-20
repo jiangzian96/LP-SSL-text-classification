@@ -11,7 +11,7 @@ NYU DS-GA 1012 final project; idea adopted from:
 - `sacremoses`
 
 ## Data
-We use [Large Movie Review Dataset v1.0](https://ai.stanford.edu/~amaas/data/sentiment/) for training and evaluating, which contains 50k labeled data. [Here](https://www.kaggle.com/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews/version/1) is a csv version of the same dataset.
+We use [Large Movie Review Dataset v1.0](https://ai.stanford.edu/~amaas/data/sentiment/) for training and evaluation, which contains 50k labeled data. [Here](https://www.kaggle.com/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews/version/1) is a csv version of the same dataset.
 
 ## Main idea
 Many supervised learning methods require a large amount of labeled data to achieve good accuracy, and in many tasks labeled data can be expensive to obtain (requires expensive human labor or human domain knowledge), while unlabeled data are available at a cheap cost. Thus, it is of practical interest to be able to leverage unlabeled data together with labeled data to reach performance comparable to that of supervised learning. Such methods, which we are interested in investigating, belong to semi-supervised learning. 
