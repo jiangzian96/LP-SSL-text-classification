@@ -45,6 +45,7 @@ In particular, we are interested in applying [label propagation](https://pdfs.se
 ## Run the full training pipeline
 
 ### 0. Preprocessing data
+Unzip the [fasttext pre-trained word vectors](https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip) and put the resulting `wiki-news-300d-1M.vec` file under `data-local/` directory, then 
 ```shell
 python make_data.py --num_labeled 4250
 ```
