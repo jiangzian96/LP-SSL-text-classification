@@ -4,6 +4,7 @@ import numpy as np
 import sacremoses
 from tqdm import tqdm
 import torch
+import io
 from torch.utils.data import Dataset, DataLoader
 
 
@@ -201,6 +202,7 @@ def build_dataloaders(num_labeled):
         "val_loader": val_loader,
         "groundtruth_loader": groundtruth_loader,
         "token2id": token2id,
+        "id2token": id2token,
         "all_indices": all_indices,  # all 50k reviews in indices
         "groundtruth_labels": groundtruth_labels
     }

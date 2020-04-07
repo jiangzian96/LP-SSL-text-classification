@@ -1,5 +1,6 @@
 from tqdm import tqdm
 
+import io
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,6 +14,44 @@ from sklearn.preprocessing import normalize
 from data_local.utils import *
 
 
+def load_vectors(fname, MAX_NUM=25000):
+    # load pre-trained word vectors
+    fin = io.open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
+    n, d = map(int, fin.readline().split())
+    data = {}
+    count = 0
+    print("Loading pre-trained vectors......")
+    for line in fin:
+        tokens = line.rstrip().split(' ')
+        data[tokens[0]] = np.fromiter(tokens[1:], np.float64)
+        count += 1
+        if count == MAX_NUM:
+            break
+
+    EMB_DIM = 300
+    data["<UNK>"] = np.random.normal(scale=0.6, size=(EMB_DIM, ))
+    data["<PAD>"] = np.zeros((EMB_DIM,))
+    return data
+
+
+def build_word_embeddings(id2token, vectors):
+    EMB_DIM = 300
+    weights_matrix = np.zeros((len(id2token), EMB_DIM))
+    num_trainable = 0
+
+    print("Building embedding matrix......")
+    for i, v in tqdm(enumerate(id2token)):
+        try:
+            embedding = vectors[v]
+            weights_matrix[i] = embedding
+            num_trainable += 1
+        except KeyError:
+            weights_matrix[i] = vectors["<UNK>"]
+
+    print("{} out of {} tokens are matched with pre-trained fasttext word vectors!".format(num_trainable, len(id2token)))
+    return torch.from_numpy(weights_matrix).float()
+
+
 # removing the last FC layer for the feature extractor
 class Identity(nn.Module):
     def __init__(self):
@@ -23,9 +62,9 @@ class Identity(nn.Module):
 
 
 class GRUClassifier(nn.Module):
-    def __init__(self, embedding_dim, hidden_dim, num_layers, num_classes=2, vocab_size=10002):
+    def __init__(self, embedding_dim, hidden_dim, num_layers, weights_matrix, num_classes=2, vocab_size=10002):
         super().__init__()
-        self.embedding_layer = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim, padding_idx=0)
+        self.embedding_layer = nn.Embedding.from_pretrained(weights_matrix, freeze=False)
         self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, batch_first=True, num_layers=num_layers)
         self.fc = nn.Linear(hidden_dim, num_classes)
 
@@ -39,12 +78,12 @@ class GRUClassifier(nn.Module):
         return logits
 
 
-def create_model(args):
+def create_model(weights_matrix, args):
     embedding_dim = args.embedding_dim
     hidden_dim = args.hidden_dim
     num_layers = args.num_layers
 
-    return GRUClassifier(embedding_dim=embedding_dim, hidden_size=hidden_dim, num_layers=num_layers)
+    return GRUClassifier(embedding_dim=embedding_dim, hidden_dim=hidden_dim, num_layers=num_layers, weights_matrix=weights_matrix)
 
 
 def evaluate(model, dataloader, device):
