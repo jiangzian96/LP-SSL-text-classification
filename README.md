@@ -22,7 +22,8 @@ In particular, we are interested in applying [label propagation](https://pdfs.se
 ### Model specifics
 #### Feature extractor
 - `nn.Embedding` with `vocab_size=10002`
-- uni-directional `GRU`
+- uni-directional `GRU` with pre-trained fasttext word embeddings
+- `BERT`
 
 #### Classifier
 - `nn.Linear`
@@ -51,7 +52,6 @@ python make_data.py --num_labeled 4250
 ### 1. Train baseline (phase 1) model 
 ```shell
 python train_baseline.py \
-    --embedding_dim 64 \
     --hidden_dim 32 \
     --num_epochs 100 \
     --name baseline \
@@ -62,7 +62,6 @@ python train_baseline.py \
 ### 2. Train full supervised (upper bound) model
 ```shell
 python train_fully_supervised.py \
-    --embedding_dim 64 \
     --hidden_dim 32 \
     --num_epochs 100 \
     --name full_supervised \
