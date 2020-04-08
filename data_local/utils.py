@@ -5,6 +5,7 @@ import sacremoses
 from tqdm import tqdm
 import torch
 import io
+import zipfile
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertTokenizer
 
@@ -187,7 +188,7 @@ def build_dataloaders(args):
         BATCH_SIZE = 32
         max_sent_length = 128
     elif token_type == "bert":
-        BATCH_SIZE = 16
+        BATCH_SIZE = 8
         max_sent_length = 512
 
     print("Creating dataloaders......")

@@ -91,7 +91,7 @@ class BertClassifier(nn.Module):
         # output:
         #   last_hidden_state: batch, seq_len, hidden_dim=768
         #   pooler_output: batch, hidden_dim
-        last_hidden_state, pooler_output = self.bert(input_ids=inputs)
+        last_hidden_state, pooler_out = self.bert(input_ids=inputs)
         dropout_out = self.drop(pooler_out)
         logits = self.fc(dropout_out)
         return logits

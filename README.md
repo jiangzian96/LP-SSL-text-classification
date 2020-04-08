@@ -9,6 +9,7 @@ NYU DS-GA 1012 final project; idea adopted from:
 - `python`
 - `torch`
 - `sacremoses`
+- `transformers`
 
 ## Data
 We use [Large Movie Review Dataset v1.0](https://ai.stanford.edu/~amaas/data/sentiment/) for training and evaluation, which contains 50k labeled data. [Here](https://www.kaggle.com/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews/version/1) is a csv version of the same dataset.
@@ -32,7 +33,7 @@ In particular, we are interested in applying [label propagation](https://pdfs.se
 - `nn.CrossEntropyLoss`
 
 #### Optimizer
-- `torch.optim.Adam(params, lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)`
+- `torch.optim.Adam(params)`
 
 ### Training pipeline
 1. Assign a small portion (5~10%) of the training data `T` as the labeled dataset, `L = (x_1,x_2,...,x_l)`. Then remove the labels for the rest and call them the unlabeled dataset, `U = (x_{l+1},x_{l+2},...,x+{l+u})`.
@@ -45,31 +46,65 @@ In particular, we are interested in applying [label propagation](https://pdfs.se
 ## Run the full training pipeline
 
 ### 0. Preprocessing data
-Unzip the [fasttext pre-trained word vectors](https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip) and put the resulting `wiki-news-300d-1M.vec` file under the `data-local/` directory, then 
+Download [fasttext pre-trained word vectors](https://dl.fbaipublicfiles.com/fasttext/vectors-english/)
 ```shell
-python make_data.py --num_labeled 4250
+! wget -P data_local https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip
+```
+ unzip
+```
+import zipfile
+with zipfile.ZipFile("data_local/wiki-news-300d-1M.vec.zip", 'r') as zip_ref:
+    zip_ref.extractall("data_local/")
+```
+, then finally 
+```shell
+python make_data.py --num_labeled 4250 --model_type gru
+```
+or 
+```shell
+python make_data.py --num_labeled 4250 --model_type bert
 ```
 
 ### 1. Train baseline (phase 1) model 
 ```shell
 python train_baseline.py \
     --hidden_dim 32 \
-    --num_epochs 100 \
+    --num_epochs 10 \
     --name baseline \
     --num_layers 2 \
-    --num_labeled 4250 
+    --num_labeled 4250
+    --model_type gru 
+```
+or 
+
+```shell
+python train_baseline.py \
+    --hidden_dim 768 \
+    --num_epochs 10 \
+    --name baseline \
+    --num_labeled 4250
+    --model_type bert
 ```
 
 ### 2. Train full supervised (upper bound) model
 ```shell
 python train_fully_supervised.py \
     --hidden_dim 32 \
-    --num_epochs 100 \
-    --name full_supervised \
+    --num_epochs 10 \
+    --name fully_supervised \
     --num_layers 2 \
-    --num_labeled 4250 
+    --num_labeled 4250
+    --model_type gru 
 ```
-
+or
+```shell
+python train_fully_supervised.py \
+    --hidden_dim 768 \
+    --num_epochs 10 \
+    --name fully_supervised \
+    --num_labeled 4250
+    --model_type bert 
+```
 ### 3. Train phase 2 model with pseudo labels
 ```shell
 python train_phase2.py \
