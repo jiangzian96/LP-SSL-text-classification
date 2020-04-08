@@ -134,7 +134,6 @@ def train(train_loader, val_loader, model, optimizer, criterion, device, args):
     val_accuracy_history = []
     best_val_acc = 0
     max_epoch = args.num_epochs
-    name = args.name
 
     for epoch in tqdm(range(max_epoch)):
         model.train()
@@ -168,7 +167,7 @@ def train(train_loader, val_loader, model, optimizer, criterion, device, args):
                 "train_loss_history": train_loss_history,
                 "val_accuracy_history": val_accuracy_history,
                 "args": args
-            }, "models/{}_model.pt".format(name))
+            }, "models/{}_{}_model.pt".format(args.name, args.model_type))
 
 
 def extract_features(data_loader, model_path, device):
