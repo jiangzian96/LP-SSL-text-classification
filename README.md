@@ -10,6 +10,10 @@ NYU DS-GA 1012 final project; idea adopted from:
 - `torch`
 - `sacremoses`
 - `transformers`
+- `scipy`
+- `pandas`
+- `numpy`
+- `scikit-learn`
 
 ## Data
 We use [Large Movie Review Dataset v1.0](https://ai.stanford.edu/~amaas/data/sentiment/) for training and evaluation, which contains 50k labeled data. [Here](https://www.kaggle.com/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews/version/1) is a csv version of the same dataset.
@@ -48,7 +52,7 @@ In particular, we are interested in applying [label propagation](https://pdfs.se
 ### 0. Preprocessing data
 Download [fasttext pre-trained word vectors](https://dl.fbaipublicfiles.com/fasttext/vectors-english/)
 ```shell
-! wget -P data_local https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip
+wget -P data_local https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip
 ```
  unzip
 ```
@@ -56,7 +60,7 @@ import zipfile
 with zipfile.ZipFile("data_local/wiki-news-300d-1M.vec.zip", 'r') as zip_ref:
     zip_ref.extractall("data_local/")
 ```
-, then finally 
+and then finally 
 ```shell
 python make_data.py --num_labeled 4250 --model_type gru
 ```
@@ -112,6 +116,17 @@ python train_phase2.py \
 	--name phase2 \
 	--num_labeled 4250 \
 	--knn 100 \
-	--phase1_model_name baseline
+	--phase1_model_name baseline_bert
+```
+
+or
+
+```shell
+python train_phase2.py \
+    --total_epochs 99 \
+    --name phase2 \
+    --num_labeled 4250 \
+    --knn 100 \
+    --phase1_model_name baseline_gru
 ```
 If successful, we should see that the performance of this model lies between that of phase 1 model and the fully-supervised model. We can also test how performance improves with more labeled data.
