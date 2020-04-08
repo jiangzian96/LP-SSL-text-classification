@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+from transformers import BertModel
 
 from sklearn.neighbors import NearestNeighbors
 import scipy
@@ -78,12 +79,34 @@ class GRUClassifier(nn.Module):
         return logits
 
 
-def create_model(weights_matrix, args):
-    embedding_dim = args.embedding_dim
-    hidden_dim = args.hidden_dim
-    num_layers = args.num_layers
+class BertClassifier(nn.Module):
+    def __init__(self, hidden_dim, dropout=0.1, num_classes=2):
+        super().__init__()
+        self.bert = BertModel.from_pretrained('bert-base-uncased', output_attentions=False, output_hidden_states=False)
+        self.drop = nn.Dropout(p=dropout)
+        self.fc = nn.Linear(hidden_dim, num_classes)
 
-    return GRUClassifier(embedding_dim=embedding_dim, hidden_dim=hidden_dim, num_layers=num_layers, weights_matrix=weights_matrix)
+    def forward(self, inputs):
+        # input: batch, seq_len=512
+        # output:
+        #   last_hidden_state: batch, seq_len, hidden_dim=768
+        #   pooler_output: batch, hidden_dim
+        last_hidden_state, pooler_output = self.bert(input_ids=inputs)
+        dropout_out = self.drop(pooler_out)
+        logits = self.fc(dropout_out)
+        return logits
+
+
+def create_model(args, weights_matrix=None):
+    if args.model_type == "gru":
+        embedding_dim = args.embedding_dim
+        hidden_dim = args.hidden_dim
+        num_layers = args.num_layers
+        return GRUClassifier(embedding_dim=embedding_dim, hidden_dim=hidden_dim, num_layers=num_layers, weights_matrix=weights_matrix)
+    elif args.model_type == "bert":
+        hidden_dim = args.hidden_dim
+        print("Loading BERT weights......")
+        return BertClassifier(hidden_dim)
 
 
 def evaluate(model, dataloader, device):

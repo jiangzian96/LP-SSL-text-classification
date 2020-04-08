@@ -6,6 +6,7 @@ from tqdm import tqdm
 import torch
 import io
 from torch.utils.data import Dataset, DataLoader
+from transformers import BertTokenizer
 
 
 def build_unlabeled(train_texts, train_labels, num_labeled=4250):
@@ -25,25 +26,32 @@ def build_unlabeled(train_texts, train_labels, num_labeled=4250):
     return labeled_texts, labeled_labels, unlabeled_texts, unlabeled_labels, all_texts, groundtruth_labels, unlabeled_idx, labeled_idx
 
 
-def tokenize_data(data):
+def tokenize_data(data, token_type):
     # input: list of strings
     # return: list of list of tokens
+    if token_type == "gru":
+        tokenizer = sacremoses.MosesTokenizer()
+        preprocessed_data = []
+        print("Processing data into tokens......")
+        for sent in tqdm(data):
+            tokenized_sent = tokenizer.tokenize(sent.lower())
+            preprocessed_data.append(tokenized_sent)
 
-    tokenizer = sacremoses.MosesTokenizer()
-    preprocessed_data = []
-    print("Processing data into tokens......")
+    elif token_type == "bert":
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+        preprocessed_data = []
+        print("Processing data into tokens......")
+        for sent in tqdm(data):
+            tokenized_sent = ["[CLS]"] + tokenizer.tokenize(sent)
+            # BERT only accepts sequences of max length 512
+            preprocessed_data.append(tokenized_sent[:512])
 
-    for sent in tqdm(data):
-        tokenized_sent = tokenizer.tokenize(sent.lower())
-        preprocessed_data.append(tokenized_sent)
-
-    return preprocessed_data
+    return preprocessed_data, tokenizer
 
 
 def build_vocab(preprocessed_data, max_vocab=10000):
     # input: list of list of tokens
     # output: token2id: dict, id2token: list
-
     all_tokens = []
     PAD_IDX = 0
     UNK_IDX = 1
@@ -63,22 +71,23 @@ def build_vocab(preprocessed_data, max_vocab=10000):
     return token2id, id2token
 
 
-def transform(preprocessed_data, labels, token2id):
+def transform(preprocessed_data, labels, token_type, tokenizer=None, token2id=None):
     # input: list of list of tokens
     # output: list of list of ids according to token2id
 
     print("Transforming tokens into indices......")
-    text_indices = []
-
-    for tokens in tqdm(preprocessed_data):
-        indices = [token2id.get(token, 1) for token in tokens]
-        text_indices.append(indices)
-
+    if token_type == "gru":
+        text_indices = []
+        for tokens in tqdm(preprocessed_data):
+            indices = [token2id.get(token, 1) for token in tokens]
+            text_indices.append(indices)
+    elif token_type == "bert":
+        text_indices = list(map(tokenizer.convert_tokens_to_ids, preprocessed_data))
     return text_indices, labels
 
 
 class ReviewDataset(Dataset):
-    def __init__(self, data_list, target_list, weights_list, class_weights, max_sent_length=128):
+    def __init__(self, data_list, target_list, weights_list, class_weights, max_sent_length):
         self.data_list = data_list
         self.target_list = target_list
         self.max_sent_length = max_sent_length
@@ -128,7 +137,10 @@ class ReviewDataset(Dataset):
         return [torch.from_numpy(np.array(data_list)), torch.LongTensor(label_list), torch.FloatTensor(w_list), torch.FloatTensor(c_list)]
 
 
-def build_dataloaders(num_labeled):
+def build_dataloaders(args):
+    num_labeled = args.num_labeled
+    token_type = args.model_type
+
     # 50k reviews
     df = pd.read_csv("data_local/reviews.csv", usecols=["review", "sentiment"], encoding='latin-1')
 
@@ -152,23 +164,32 @@ def build_dataloaders(num_labeled):
         unlabeled_idx, labeled_idx = build_unlabeled(train_texts, train_labels, num_labeled=num_labeled)
 
     # strings ---> tokens
-    labeled_processed = tokenize_data(labeled_texts)
-    unlabeled_processed = tokenize_data(unlabeled_texts)
-    val_processed = tokenize_data(val_texts)
-    all_processed = tokenize_data(all_texts)
+    labeled_processed, tokenizer = tokenize_data(labeled_texts, token_type)
+    unlabeled_processed, tokenizer = tokenize_data(unlabeled_texts, token_type)
+    val_processed, tokenizer = tokenize_data(val_texts, token_type)
+    all_processed, tokenizer = tokenize_data(all_texts, token_type)
 
     # build vocab using labeled + unlabeled
-    token2id, id2token = build_vocab(all_processed, max_vocab=10000)
+    if token_type == "gru":
+        token2id, id2token = build_vocab(all_processed, max_vocab=10000)
+    elif token_type == "bert":
+        token2id = None
+        id2token = None
 
     # tokens --- > indices
-    labeled_indices, labeled_labels = transform(labeled_processed, labeled_labels, token2id)
-    unlabeled_indices, unlabeled_labels = transform(unlabeled_processed, unlabeled_labels, token2id)
-    val_indices, val_labels = transform(val_processed, val_labels, token2id)
-    all_indices, groundtruth_labels = transform(all_processed, groundtruth_labels, token2id)
+    labeled_indices, labeled_labels = transform(labeled_processed, labeled_labels, token_type, tokenizer, token2id)
+    unlabeled_indices, unlabeled_labels = transform(unlabeled_processed, unlabeled_labels, token_type, tokenizer, token2id)
+    val_indices, val_labels = transform(val_processed, val_labels, token_type, tokenizer, token2id)
+    all_indices, groundtruth_labels = transform(all_processed, groundtruth_labels, token_type, tokenizer, token2id)
 
     # build dataloaders
-    BATCH_SIZE = 32
-    max_sent_length = 128
+    if token_type == "gru":
+        BATCH_SIZE = 32
+        max_sent_length = 128
+    elif token_type == "bert":
+        BATCH_SIZE = 16
+        max_sent_length = 512
+
     print("Creating dataloaders......")
     w_list = [1. for i in range(len(labeled_labels))]
     c_list = [1., 1.]
