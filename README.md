@@ -27,7 +27,7 @@ In particular, we are interested in applying [label propagation](https://pdfs.se
 ### Model specifics
 #### Feature extractor
 - `nn.Embedding` with `vocab_size=10002`
-- Bi-directional `GRU` with pre-trained fasttext word embeddings
+- uni-directional `GRU` with pre-trained fasttext word embeddings
 - `BERT`
 
 #### Classifier
@@ -112,11 +112,11 @@ python train_fully_supervised.py \
 ### 3. Train phase 2 model with pseudo labels
 ```shell
 python train_phase2.py \
-	--total_epochs 99 \
-	--name phase2 \
-	--num_labeled 4250 \
-	--knn 100 \
-	--phase1_model_name baseline_bert \
+    --total_epochs 99 \
+    --name phase2 \
+    --num_labeled 4250 \
+    --knn 100 \
+    --phase1_model_name baseline_gru \
     --model_type bert
 ```
 
