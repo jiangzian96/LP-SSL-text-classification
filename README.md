@@ -27,7 +27,7 @@ In particular, we are interested in applying [label propagation](https://pdfs.se
 ### Model specifics
 #### Feature extractor
 - `nn.Embedding` with `vocab_size=10002`
-- uni-directional `GRU` with pre-trained fasttext word embeddings
+- Bi-directional `GRU` with pre-trained fasttext word embeddings
 - `BERT`
 
 #### Classifier
@@ -116,7 +116,8 @@ python train_phase2.py \
 	--name phase2 \
 	--num_labeled 4250 \
 	--knn 100 \
-	--phase1_model_name baseline_bert
+	--phase1_model_name baseline_bert \
+    --model_type bert
 ```
 
 or
@@ -127,6 +128,7 @@ python train_phase2.py \
     --name phase2 \
     --num_labeled 4250 \
     --knn 100 \
-    --phase1_model_name baseline_gru
+    --phase1_model_name baseline_gru \
+    --model_type gru
 ```
 If successful, we should see that the performance of this model lies between that of phase 1 model and the fully-supervised model. We can also test how performance improves with more labeled data.

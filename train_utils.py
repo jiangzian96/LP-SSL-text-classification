@@ -63,16 +63,22 @@ class Identity(nn.Module):
 
 
 class GRUClassifier(nn.Module):
-    def __init__(self, embedding_dim, hidden_dim, num_layers, weights_matrix, num_classes=2, vocab_size=10002):
+    def __init__(self, embedding_dim, hidden_dim, num_layers, phase2, weights_matrix=None, num_classes=2, vocab_size=10002):
         super().__init__()
-        self.embedding_layer = nn.Embedding.from_pretrained(weights_matrix, freeze=False)
-        self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, batch_first=True, num_layers=num_layers)
+        if not phase2:
+            self.embedding_layer = nn.Embedding.from_pretrained(weights_matrix, freeze=False)
+        else:
+            self.embedding_layer = nn.Embedding(vocab_size, embedding_dim)
+        self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, batch_first=True, num_layers=num_layers, bidirectional=False)
         self.fc = nn.Linear(hidden_dim, num_classes)
+        self.num_layers = num_layers
+        self.hidden_dim = hidden_dim
 
     def forward(self, inputs):
         out = self.embedding_layer(inputs)
-        gru_out, h_n = self.gru(out)
-        # gru_out: (batch, seq_len, num_directions * hidden_size)
+        gru_out, hidden = self.gru(out)
+        # gru_out: (batch_size, seq_len, num_directions * hidden_dim)
+        # hidden: (num_layers*num_directions, batch_size, hidden_dim)
         out = gru_out[:, -1, :].squeeze(1)
         logits = self.fc(out)
 
@@ -97,12 +103,12 @@ class BertClassifier(nn.Module):
         return logits
 
 
-def create_model(args, weights_matrix=None):
+def create_model(args, phase2=False, weights_matrix=None):
     if args.model_type == "gru":
         embedding_dim = args.embedding_dim
         hidden_dim = args.hidden_dim
         num_layers = args.num_layers
-        return GRUClassifier(embedding_dim=embedding_dim, hidden_dim=hidden_dim, num_layers=num_layers, weights_matrix=weights_matrix)
+        return GRUClassifier(embedding_dim=embedding_dim, hidden_dim=hidden_dim, num_layers=num_layers, weights_matrix=weights_matrix, phase2=phase2)
     elif args.model_type == "bert":
         hidden_dim = args.hidden_dim
         print("Loading BERT weights......")
@@ -174,10 +180,9 @@ def extract_features(data_loader, model_path, device):
     args = torch.load(model_path, map_location=torch.device(device))["args"]
 
     # build model
-    feature_extractor = create_model(args).to(device)
+    feature_extractor = create_model(args, phase2=True).to(device)
     feature_extractor.load_state_dict(torch.load(model_path, map_location=torch.device(device))["model_state_dict"])
     feature_extractor.fc = Identity()
-
     feature_extractor.eval()
     res = torch.tensor([]).to(device)
     print("Extracting features......")
