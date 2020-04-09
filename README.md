@@ -27,7 +27,7 @@ In particular, we are interested in applying [label propagation](https://pdfs.se
 ### Model specifics
 #### Feature extractor
 - `nn.Embedding` with `vocab_size=10002`
-- uni-directional `GRU` with pre-trained fasttext word embeddings
+- Bi-directional `GRU` with pre-trained fasttext word embeddings
 - `BERT`
 
 #### Classifier

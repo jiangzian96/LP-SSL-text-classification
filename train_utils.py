@@ -15,7 +15,7 @@ from sklearn.preprocessing import normalize
 from data_local.utils import *
 
 
-def load_vectors(fname, MAX_NUM=25000):
+def load_vectors(fname, MAX_NUM=50000):
     # load pre-trained word vectors
     fin = io.open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
     n, d = map(int, fin.readline().split())
@@ -69,7 +69,7 @@ class GRUClassifier(nn.Module):
             self.embedding_layer = nn.Embedding.from_pretrained(weights_matrix, freeze=False)
         else:
             self.embedding_layer = nn.Embedding(vocab_size, embedding_dim)
-        self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, batch_first=True, num_layers=num_layers, bidirectional=False)
+        self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, batch_first=True, num_layers=num_layers, bidirectional=True)
         self.fc = nn.Linear(hidden_dim, num_classes)
         self.num_layers = num_layers
         self.hidden_dim = hidden_dim
@@ -77,9 +77,13 @@ class GRUClassifier(nn.Module):
     def forward(self, inputs):
         out = self.embedding_layer(inputs)
         gru_out, hidden = self.gru(out)
-        # gru_out: (batch_size, seq_len, num_directions * hidden_dim)
-        # hidden: (num_layers*num_directions, batch_size, hidden_dim)
-        out = gru_out[:, -1, :].squeeze(1)
+        # gru_out: (batch, seq_len, num_directions * hidden_dim)
+        # hidden: (num_layers*num_directions, batch, hidden_dim)
+        batch = gru_out.shape[0]
+        hidden = hidden.view(self.num_layers, 2, batch, self.hidden_dim)
+        # last_hidden: (2, batch, hidden_dim)
+        last_hidden = hidden[-1]
+        out = last_hidden.sum(dim=0)
         logits = self.fc(out)
 
         return logits
