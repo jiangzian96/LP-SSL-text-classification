@@ -58,7 +58,7 @@ def main():
         pseudo_loader = update_pseudoloader(d["all_indices"], p_labels, updated_weights, updated_class_weights)
         model = create_model(model_config, phase2=True)
         model = model.to(device)
-        model.load_state_dict(torch.load("models/{}_model.pt".format(args.name), map_location=torch.device(device))["model_state_dict"])
+        model.load_state_dict(torch.load(PATH, map_location=torch.device(device))["model_state_dict"])
         criterion = nn.CrossEntropyLoss(reduction="none")
         optimizer = optim.Adam(model.parameters())
         train(pseudo_loader, d["val_loader"], model, optimizer, criterion, device, args)
