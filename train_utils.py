@@ -180,19 +180,19 @@ def train(train_loader, val_loader, model, optimizer, criterion, device, args):
             }, "models/{}_{}_model.pt".format(args.name, args.model_type))
 
 
-def extract_features(data_loader, model_path, device):
+def extract_features(data_loader, model_path, device="cpu"):
     args = torch.load(model_path, map_location=torch.device(device))["args"]
 
     # build model
-    feature_extractor = create_model(args, phase2=True).to(device)
-    feature_extractor.load_state_dict(torch.load(model_path, map_location=torch.device(device))["model_state_dict"])
+    feature_extractor = create_model(args, phase2=True).to("cuda")
+    feature_extractor.load_state_dict(torch.load(model_path, map_location=torch.device("cuda"))["model_state_dict"])
     feature_extractor.fc = Identity()
     feature_extractor.eval()
-    res = torch.tensor([]).to(device)
+    res = np.array([]).reshape(0, args.hidden_dim)
     print("Extracting features......")
     for i, (data_batch, batch_labels, w, c) in enumerate(tqdm(data_loader)):
-        batch_features = feature_extractor(data_batch.to(device))
-        res = torch.cat((res, batch_features), 0)
+        batch_features = feature_extractor(data_batch.to("cuda")).cpu().detach().numpy()
+        res = np.vstack([res, batch_features])
 
     print("Extracted {} points; each {}-dimensional!".format(*res.shape))
 
@@ -272,8 +272,7 @@ def assign_pseudo_labels(Z, groundtruth_labels, labeled_idx, num_classes=2):
 
 
 def calculate_knn(batch_features, k=100):
-    X = batch_features.cpu().detach().numpy()
-    X = normalize(X)
+    X = normalize(batch_features)
     print("Calculating {} nearest neighbors for each point...".format(k))
     nbrs = NearestNeighbors(n_neighbors=k + 1, algorithm='auto').fit(X)
     distances, indices = nbrs.kneighbors(X)
