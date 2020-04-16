@@ -10,14 +10,14 @@ from train_utils import *
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--total_epochs", default=99, type=int, help="total number of epochs to train with updating pseudo labels", required=True)
+    parser.add_argument("--total_epochs", type=int, help="total number of epochs to train with updating pseudo labels", required=True)
     parser.add_argument("--num_epochs", default=1, type=int, help="num epoch")
     parser.add_argument("--name", default="phase2", type=str, help="name of the phase2 model")
     parser.add_argument("--num_labeled", default=4250, type=int, help="number of labeled data used in make_data.py", required=True)
     parser.add_argument("--knn", default=100, type=int, help="k for knn")
     parser.add_argument("--phase1_model_name", default="baseline", type=str, help="name of the baseline/phase1 model", required=True)
     parser.add_argument("-t", "--model_type", type=str, help="type of tokenization", required=True, choices=["gru", "bert"])
-    parser.add_argument("--hidden_dim", default=32, type=int, help="hidden dim")
+    parser.add_argument("--hidden_dim", type=int, help="hidden dim", required=True)
     parser.add_argument("--num_layers", default=2, type=int, help="number of layers for GRU")
     parser.add_argument("--embedding_dim", default=300, type=int, help="embedding dim")
     args = parser.parse_args()

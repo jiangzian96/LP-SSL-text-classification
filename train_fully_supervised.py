@@ -16,7 +16,7 @@ def main():
     parser.add_argument("--num_epochs", default=20, type=int, help="number of epochs", required=True)
     parser.add_argument("--name", default="fully_supervised", type=str, help="name of the model", required=True)
     parser.add_argument("--num_layers", default=2, type=int, help="number of layers for GRU")
-    parser.add_argument("--num_labeled", default=4250, type=int, help="number of labeled data used in make_data.py", required=True)
+    parser.add_argument("--num_labeled", default=42500, type=int, help="number of labeled data used in make_data.py")
     parser.add_argument("--model_type", type=str, help="model type", required=True, choices=["gru", "bert"])
     args = parser.parse_args()
 

@@ -12,8 +12,8 @@ def main():
     # parse args
     parser = argparse.ArgumentParser()
     parser.add_argument("--embedding_dim", default=300, type=int, help="embedding dim")
-    parser.add_argument("--hidden_dim", default=32, type=int, help="hidden dim", required=True)
-    parser.add_argument("--num_epochs", default=20, type=int, help="number of epochs", required=True)
+    parser.add_argument("--hidden_dim", type=int, help="hidden dim", required=True)
+    parser.add_argument("--num_epochs", type=int, help="number of epochs", required=True)
     parser.add_argument("--name", default="baseline", type=str, help="name of the model", required=True)
     parser.add_argument("--num_layers", default=2, type=int, help="number of layers for GRU")
     parser.add_argument("--num_labeled", default=4250, type=int, help="number of labeled data used in make_data.py", required=True)
