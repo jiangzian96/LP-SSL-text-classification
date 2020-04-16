@@ -68,11 +68,12 @@ or
 ```shell
 python make_data.py --num_labeled 4250 --model_type bert
 ```
+4250 is 10% of the available 42500 training examples (7500 validation examples thus 50k total). 
 
-### 1. Train baseline (phase 1) model 
+### 1. Train baseline (phase 1) 
 ```shell
 python train_baseline.py \
-    --hidden_dim 32 \
+    --hidden_dim 64 \
     --num_epochs 10 \
     --name baseline \
     --num_layers 2 \
@@ -90,14 +91,13 @@ python train_baseline.py \
     --model_type bert
 ```
 
-### 2. Train full supervised (upper bound) model
+### 2. Train full supervised (upper bound)
 ```shell
 python train_fully_supervised.py \
-    --hidden_dim 32 \
+    --hidden_dim 64 \
     --num_epochs 10 \
     --name fully_supervised \
     --num_layers 2 \
-    --num_labeled 4250
     --model_type gru 
 ```
 or
@@ -106,17 +106,17 @@ python train_fully_supervised.py \
     --hidden_dim 768 \
     --num_epochs 10 \
     --name fully_supervised \
-    --num_labeled 4250
     --model_type bert 
 ```
-### 3. Train phase 2 model with pseudo labels
+### 3. Train phase 2
 ```shell
 python train_phase2.py \
     --total_epochs 99 \
     --name phase2 \
     --num_labeled 4250 \
     --knn 100 \
-    --phase1_model_name baseline_gru \
+    --hidden_dim 768 \
+    --phase1_model_name baseline_bert \
     --model_type bert
 ```
 
@@ -128,7 +128,9 @@ python train_phase2.py \
     --name phase2 \
     --num_labeled 4250 \
     --knn 100 \
+    --hidden_dim 64 \
+    --num_layers 2 \
     --phase1_model_name baseline_gru \
     --model_type gru
 ```
-If successful, we should see that the performance of this model lies between that of phase 1 model and the fully-supervised model. We can also test how performance improves with more labeled data.
+If successful, we should see that the performance of this model lies between that of phase 1 model and the fully-supervised model. We can also test how phase 2 performance improves with more labeled data.
