@@ -84,7 +84,7 @@ or
 
 ```shell
 python train_baseline.py \
-    --hidden_dim 768 \
+    --hidden_dim 32 \
     --num_epochs 10 \
     --name baseline \
     --num_labeled 4250
@@ -103,7 +103,7 @@ python train_fully_supervised.py \
 or
 ```shell
 python train_fully_supervised.py \
-    --hidden_dim 768 \
+    --hidden_dim 32 \
     --num_epochs 10 \
     --name fully_supervised \
     --model_type bert 
@@ -115,7 +115,7 @@ python train_phase2.py \
     --name phase2 \
     --num_labeled 4250 \
     --knn 100 \
-    --hidden_dim 768 \
+    --hidden_dim 32 \
     --phase1_model_name baseline_bert \
     --model_type bert
 ```
