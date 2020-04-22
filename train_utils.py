@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-from transformers import DistilBertModel
+from transformers import BertModel
 
 from sklearn.neighbors import NearestNeighbors
 import scipy
@@ -90,10 +90,10 @@ class GRUClassifier(nn.Module):
 
 
 class BertClassifier(nn.Module):
-    def __init__(self, hidden_dim, dropout=0.1, num_classes=2):
+    def __init__(self, hidden_dim, num_classes=2):
         super().__init__()
-        self.bert = DistilBertModel.from_pretrained('distilbert-base-uncased', output_attentions=False, output_hidden_states=False)
-        self.drop = nn.Dropout(p=dropout)
+        self.bert = BertModel.from_pretrained('bert-base-uncased', output_attentions=False, output_hidden_states=False)
+        self.linear = nn.Linear(768, hidden_dim)
         self.fc = nn.Linear(hidden_dim, num_classes)
 
     def forward(self, inputs):
@@ -101,9 +101,9 @@ class BertClassifier(nn.Module):
         # output:
         #   last_hidden_states: batch, seq_len, hidden_dim=768
         last_hidden_states = self.bert(input_ids=inputs)[0]
-        out = last_hidden_states.mean(dim=1)
-        dropout_out = self.drop(out)
-        logits = self.fc(dropout_out)
+        out = last_hidden_states[:, 0, :]  # get [CLS]
+        out = self.linear(out)
+        logits = self.fc(out)
         return logits
 
 
